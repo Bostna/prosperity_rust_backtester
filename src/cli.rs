@@ -63,7 +63,7 @@ pub fn run() -> Result<()> {
         price_slippage_bps: args.price_slippage_bps,
     };
     let artifact_mode = resolve_artifact_mode(&args);
-    let (persist, write_metrics, write_submission_log, materialize_artifacts) =
+    let (persist, write_metrics, write_bundle, write_submission_log, materialize_artifacts) =
         artifact_mode_settings(artifact_mode);
 
     for plan in plans {
@@ -76,6 +76,7 @@ pub fn run() -> Result<()> {
             output_root: output_root.clone(),
             persist,
             write_metrics,
+            write_bundle,
             write_submission_log,
             materialize_artifacts,
             metadata_overrides: Default::default(),
@@ -171,6 +172,7 @@ enum ProductDisplayMode {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 enum ArtifactMode {
     None,
+    Diagnostic,
     Submission,
     Full,
 }
@@ -185,11 +187,12 @@ fn resolve_artifact_mode(args: &Args) -> ArtifactMode {
     ArtifactMode::Submission
 }
 
-fn artifact_mode_settings(mode: ArtifactMode) -> (bool, bool, bool, bool) {
+fn artifact_mode_settings(mode: ArtifactMode) -> (bool, bool, bool, bool, bool) {
     match mode {
-        ArtifactMode::None => (false, true, false, false),
-        ArtifactMode::Submission => (false, true, true, false),
-        ArtifactMode::Full => (true, true, true, true),
+        ArtifactMode::None => (false, true, false, false, false),
+        ArtifactMode::Diagnostic => (false, true, true, false, false),
+        ArtifactMode::Submission => (false, true, false, true, false),
+        ArtifactMode::Full => (true, true, true, true, true),
     }
 }
 
@@ -779,6 +782,7 @@ fn print_summary(
         "artifacts: {}",
         match artifact_mode {
             ArtifactMode::None => "metrics-only",
+            ArtifactMode::Diagnostic => "metrics+pnl-series",
             ArtifactMode::Submission => "log-only",
             ArtifactMode::Full => "saved",
         }

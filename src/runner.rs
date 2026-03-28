@@ -136,8 +136,9 @@ pub fn run_backtest(request: &RunRequest) -> Result<RunOutput> {
     let run_id = resolve_run_id(request)?;
     let run_dir = request.output_root.join(&run_id);
     let need_submission_log = request.persist || request.write_submission_log;
+    let write_bundle = request.persist || request.write_bundle || request.materialize_artifacts;
     let full_artifacts = request.persist || request.materialize_artifacts;
-    if need_submission_log || request.write_metrics {
+    if need_submission_log || request.write_metrics || write_bundle {
         fs::create_dir_all(&run_dir)
             .with_context(|| format!("failed to create run directory {}", run_dir.display()))?;
     }
@@ -295,7 +296,7 @@ pub fn run_backtest(request: &RunRequest) -> Result<RunOutput> {
             ]));
         }
 
-        if full_artifacts {
+        if write_bundle {
             pnl_series.push(object(vec![
                 ("timestamp", json_i64(tick.timestamp)),
                 ("total", json_f64(final_pnl_total)?),
@@ -305,19 +306,21 @@ pub fn run_backtest(request: &RunRequest) -> Result<RunOutput> {
                 ),
             ]));
 
-            timeline.push(build_timeline_row(
-                tick,
-                &orders_flat,
-                &own_trades_tick,
-                &market_trades_next,
-                &position,
-                &pnl_by_product,
-                final_pnl_total,
-                &sandbox_log,
-                &algorithm_logs,
-                tick_result.conversions,
-                &trader_data,
-            )?);
+            if full_artifacts {
+                timeline.push(build_timeline_row(
+                    tick,
+                    &orders_flat,
+                    &own_trades_tick,
+                    &market_trades_next,
+                    &position,
+                    &pnl_by_product,
+                    final_pnl_total,
+                    &sandbox_log,
+                    &algorithm_logs,
+                    tick_result.conversions,
+                    &trader_data,
+                )?);
+            }
         }
 
         own_trades_prev = own_trades_tick;
@@ -346,7 +349,7 @@ pub fn run_backtest(request: &RunRequest) -> Result<RunOutput> {
     ]);
     let result_json = sorted_json_bytes(&result_value)?;
 
-    let artifacts = if need_submission_log || request.write_metrics {
+    let artifacts = if need_submission_log || request.write_metrics || write_bundle {
         let bundle_value = object(vec![
             (
                 "run",
@@ -377,14 +380,14 @@ pub fn run_backtest(request: &RunRequest) -> Result<RunOutput> {
             ),
             (
                 "pnl_series",
-                Value::Array(if full_artifacts {
+                Value::Array(if write_bundle {
                     pnl_series
                 } else {
                     Vec::new()
                 }),
             ),
         ]);
-        let bundle_json = if full_artifacts {
+        let bundle_json = if write_bundle {
             sorted_json_bytes(&bundle_value)?
         } else {
             Vec::new()
@@ -436,6 +439,10 @@ pub fn run_backtest(request: &RunRequest) -> Result<RunOutput> {
 
         if request.persist {
             write_artifacts(&run_dir, &artifact_set)?;
+        } else if request.write_bundle && request.write_metrics {
+            write_metrics_and_bundle(&run_dir, &artifact_set)?;
+        } else if request.write_bundle {
+            write_bundle_only(&run_dir, &artifact_set)?;
         } else if request.write_metrics {
             write_metrics_only(&run_dir, &artifact_set)?;
         } else if request.write_submission_log {
@@ -1162,6 +1169,17 @@ fn write_artifacts(run_dir: &Path, artifacts: &ArtifactSet) -> Result<()> {
 
 fn write_submission_log_only(run_dir: &Path, artifacts: &ArtifactSet) -> Result<()> {
     fs::write(run_dir.join("submission.log"), &artifacts.submission_log)?;
+    Ok(())
+}
+
+fn write_bundle_only(run_dir: &Path, artifacts: &ArtifactSet) -> Result<()> {
+    fs::write(run_dir.join("bundle.json"), &artifacts.bundle_json)?;
+    Ok(())
+}
+
+fn write_metrics_and_bundle(run_dir: &Path, artifacts: &ArtifactSet) -> Result<()> {
+    fs::write(run_dir.join("metrics.json"), &artifacts.metrics_json)?;
+    fs::write(run_dir.join("bundle.json"), &artifacts.bundle_json)?;
     Ok(())
 }
 
