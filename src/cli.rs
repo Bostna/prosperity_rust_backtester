@@ -46,7 +46,7 @@ struct Args {
     flat: bool,
     #[arg(long = "artifact-mode", value_enum)]
     artifact_mode: Option<ArtifactMode>,
-    #[arg(long, value_enum, default_value_t = ProductDisplayMode::Summary)]
+    #[arg(long, value_enum, default_value_t = ProductDisplayMode::Full)]
     products: ProductDisplayMode,
 }
 
@@ -1657,17 +1657,24 @@ fn short_product_label(product: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        ProductDisplayMode, ProductMatrix, ProductMatrixRow, SummaryRow, build_carry_dataset,
+        Args, ProductDisplayMode, ProductMatrix, ProductMatrixRow, SummaryRow, build_carry_dataset,
         build_product_matrix, build_run_plan, collect_dataset_files, collect_requested_days,
         merge_submission_logs, resolve_dataset_input, resolve_dataset_input_with_root,
         round_submission_entry, run_suffix, short_dataset_label,
     };
     use crate::model::{ArtifactSet, MatchingConfig, RunMetrics, RunOutput, load_dataset};
     use crate::runner::project_root;
+    use clap::Parser;
     use indexmap::IndexMap;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn product_display_defaults_to_full() {
+        let args = Args::try_parse_from(["rust_backtester"]).expect("args should parse");
+        assert_eq!(args.products, ProductDisplayMode::Full);
+    }
 
     #[test]
     fn product_split_formats_compact_table() {
@@ -1749,6 +1756,40 @@ mod tests {
                     },
                 ],
             }
+        );
+    }
+
+    #[test]
+    fn product_split_full_keeps_long_lists_unrolled() {
+        let row = SummaryRow {
+            dataset: "D=0".to_string(),
+            day: Some(0),
+            tick_count: 0,
+            own_trade_count: 0,
+            final_pnl_total: 36.0,
+            final_pnl_by_product: {
+                let mut values = IndexMap::new();
+                values.insert("HYDROGEL_PACK".to_string(), 1.0);
+                values.insert("VELVETFRUIT_EXTRACT".to_string(), 2.0);
+                values.insert("VEV_4000".to_string(), 3.0);
+                values.insert("VEV_4500".to_string(), 4.0);
+                values.insert("VEV_5000".to_string(), 5.0);
+                values.insert("VEV_5100".to_string(), 6.0);
+                values.insert("VEV_5200".to_string(), 7.0);
+                values.insert("VEV_5300".to_string(), 8.0);
+                values
+            },
+            run_dir: None,
+        };
+
+        let matrix = build_product_matrix(&[row], ProductDisplayMode::Full);
+
+        assert_eq!(matrix.rows.len(), 8);
+        assert!(
+            matrix
+                .rows
+                .iter()
+                .all(|row| !row.product.starts_with("OTHER"))
         );
     }
 

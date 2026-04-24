@@ -8,6 +8,10 @@ Everything needed for the default backtest flow now lives inside this directory.
 
 - `traders/latest_trader.py`
 
+There is also a diagnostic trader that aggressively tests every visible product in a dataset:
+
+- `traders/all_products_trader.py`
+
 ## Setup
 
 Clone the repo:
@@ -183,6 +187,7 @@ Useful optional variables for any `make` backtest target:
 make tutorial DAY=-1
 make submission ROUND=round1
 make round3 TRADER=traders/latest_trader.py
+make round3 TRADER=traders/all_products_trader.py
 make round2 PERSIST=1
 make tutorial FLAT=1
 make tutorial CARRY=1
@@ -243,7 +248,7 @@ Behavior:
 - use `--persist` or `PERSIST=1` to write the full replay artifact set under `runs/`
 - persisted multi-day or multi-file runs also write one combined bundle at `runs/<backtest-id>/`, including `combined.log` and `manifest.json`
 - for multi-run visualizer uploads, use each child `RUN_DIR/submission.log`; the top-level bundle does not emit a stitched replay file
-- product output defaults to a compact summary so large product sets do not flood the terminal
+- product output defaults to every product so no product PnL is hidden in larger rounds
 
 Published binary vs local development:
 
@@ -269,8 +274,8 @@ Bundled dataset aliases:
 
 Product display modes:
 
-- `--products summary` default: print a separate product table with the top product PnL contributors and an `OTHER(+N)` rollup when needed
-- `--products full`: print a separate product table with every product
+- `--products full` default: print a separate product table with every product
+- `--products summary`: print a compact product table with the top product PnL contributors and an `OTHER(+N)` rollup when needed
 - `--products off`: show only the per-day total
 
 Artifact modes:
@@ -396,6 +401,7 @@ The Docker image builds the project in a clean container and runs the zero-argum
 
 - `src/` Rust backtester implementation
 - `traders/latest_trader.py` bundled default trader
+- `traders/all_products_trader.py` diagnostic trader for verifying every product surface
 - `datasets/tutorial/` bundled raw IMC tutorial day CSVs and sample submission log
 - `datasets/round1/` bundled raw IMC round 1 CSVs
 - `datasets/round2/` bundled raw IMC round 2 CSVs

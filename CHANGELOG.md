@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.6 - 2026-04-24
+
+### Added
+
+- Add `traders/all_products_trader.py` as a diagnostic trader that attempts to trade every product with visible book liquidity.
+
+### Changed
+
+- Show every product in the default CLI product table instead of rolling lower-ranked products into `OTHER(+N)`.
+
 ## v0.4.5 - 2026-04-24
 
 ### Fixed
